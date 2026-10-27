@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우리반 출석부</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a single ledger column — class header, tab strip, then one working sheet per tab */
+:root {
+  --bg: #eef2f1;
+  --sheet: #ffffff;
+  --ink: #1b2523;
+  --muted: #5d6b68;
+  --line: #d6dfdc;
+  --accent: #1f5e4f;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcebe6;
+  --present: #2f7d4f; --present-bg: #e1f1e6;
+  --late: #a3670b;    --late-bg: #fbeed3;
+  --early: #6a54a8;   --early-bg: #ebe6f7;
+  --skip: #2f6aa3;    --skip-bg: #e0ecf8;
+  --absent: #b23b3b;  --absent-bg: #f8e1e1;
+  --none: #8a9693;    --none-bg: #eef1f0;
+  --font-display: "Do Hyeon", "IBM Plex Sans KR", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #121816; --sheet: #1a2220; --ink: #e4ebe9; --muted: #9aa8a4; --line: #2c3835;
+  --accent: #6cc2a6; --accent-ink: #0d1a16; --accent-soft: #1f3a32;
+  --present: #79cf98; --present-bg: #1c3426;
+  --late: #e8b45a;    --late-bg: #3a2d14;
+  --early: #b4a2ec;   --early-bg: #2b2540;
+  --skip: #7fb5e8;    --skip-bg: #1a2c3e;
+  --absent: #ee8a8a;  --absent-bg: #3d1f1f;
+  --none: #7d8a87;    --none-bg: #222b29;
+  color-scheme: dark } }
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 920px; margin: 0 auto; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wrap: balance; }
+h1 { font-size: 2.1rem; line-height: 1.1; }
+h2 { font-size: 1.45rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+[hidden] { display: none !important; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+.eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; color: var(--muted); }
+
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+nav.tabs button { border: 0; background: none; padding: 10px 16px; font: inherit; font-weight: 500; color: var(--muted); border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+.sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.spacer { flex: 1; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+.btn { border: 1px solid var(--line); background: var(--sheet); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--absent); }
+.btn:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type="text"], input[type="date"], input[type="month"], select, textarea {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+textarea { width: 100%; min-height: 120px; resize: vertical; }
+
+.summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.85rem; font-weight: 500; }
+.chip b { font-family: var(--font-num); font-weight: 500; }
+.s-present { color: var(--present); background: var(--present-bg); }
+.s-late { color: var(--late); background: var(--late-bg); }
+.s-early { color: var(--early); background: var(--early-bg); }
+.s-skip { color: var(--skip); background: var(--skip-bg); }
+.s-absent { color: var(--absent); background: var(--absent-bg); }
+.s-none { color: var(--none); background: var(--none-bg); }
+
+.roll { display: grid; }
+.student { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 10px 4px; border-top: 1px solid var(--line); }
+.student:first-child { border-top: 0; }
+.student .no { font-family: var(--font-num); color: var(--muted); text-align: right; }
+.student .who { min-width: 0; display: grid; gap: 2px; }
+.student .name { font-weight: 600; }
+.student .meta { font-size: 0.8rem; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: end; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-left: 1px solid var(--line); background: transparent; padding: 5px 10px; cursor: pointer; font-size: 0.88rem; color: var(--muted); }
+.seg button:first-child { border-left: 0; }
+.seg button.on { font-weight: 600; }
+.seg button.on.present { background: var(--present-bg); color: var(--present); }
+.seg button.on.late { background: var(--late-bg); color: var(--late); }
+.seg button.on.early { background: var(--early-bg); color: var(--early); }
+.seg button.on.skip { background: var(--skip-bg); color: var(--skip); }
+.seg button.on.absent { background: var(--absent-bg); color: var(--absent); }
+.controls select { padding: 4px 8px; font-size: 0.85rem; }
+@media (max-width: 620px) {
+  .student { grid-template-columns: 2.2rem minmax(0, 1fr); }
+  .controls { grid-column: 1 / -1; justify-content: start; }
+}
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { font-size: 0.78rem; letter-spacing: 0.04em; color: var(--muted); font-weight: 500; }
+td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+td input[type="text"] { width: 100%; min-width: 12rem; }
+
+.empty { padding: 28px 12px; text-align: center; display: grid; gap: 8px; justify-items: center; color: var(--muted); }
+.empty h3 { color: var(--ink); font-size: 1.3rem; }
+.notice { padding: 10px 14px; border-radius: 8px; background: var(--accent-soft); color: var(--ink); font-size: 0.9rem; }
+
+#toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: calc(100% - 32px); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="today-label"></div>
+      <h1 id="class-name">우리반 출석부</h1>
+    </div>
+  </header>
+  <div class="notice" id="storage-warning" hidden>이 브라우저는 기록을 저장할 수 없습니다. 시크릿 창이라면 일반 창에서 다시 열어 주세요.</div>
+  <nav class="tabs" id="tabs">
+    <button id="tab-roll" data-tab="roll" aria-selected="true">출결</button>
+    <button id="tab-roster" data-tab="roster" aria-selected="false">학생 명단</button>
+    <button id="tab-stats" data-tab="stats" aria-selected="false">통계</button>
+    <button id="tab-backup" data-tab="backup" aria-selected="false">백업</button>
+  </nav>
+  <main id="main"></main>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+const STATUSES = [
+  { key: "present", label: "출석" },
+  { key: "late", label: "지각" },
+  { key: "early", label: "조퇴" },
+  { key: "skip", label: "결과" },
+  { key: "absent", label: "결석" },
+];
+const LABEL = Object.fromEntries(STATUSES.map(s => [s.key, s.label]));
+const REASONS = ["질병", "미인정", "기타", "출석인정"];
+const STORE_KEY = "uri-ban-attendance-v1";
+
+// everything the teacher records lives in this one object, saved to this browser
+let data = { className: "", students: [], records: {}, memos: {}, savedAt: null };
+const view = { tab: "roll", date: localDate(new Date()), month: localDate(new Date()).slice(0, 7), bulk: "" };
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) data = { ...data, ...JSON.parse(raw) };
+    const t = localStorage.getItem(STORE_KEY + ":tab");
+    if (["roll", "roster", "stats", "backup"].includes(t)) view.tab = t;
+  } catch { document.getElementById("storage-warning").hidden = false; }
+}
+function save() {
+  data.savedAt = new Date().toISOString();
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+  catch { document.getElementById("storage-warning").hidden = false; }
+}
+
+function localDate(d) {
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function koDate(s) {
+  return new Date(s + "T00:00:00").toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+}
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "class") el.className = v;
+    else if (k === "value") el.value = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return el;
+}
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+}
+function sortedStudents() { return [...data.students].sort((a, b) => (a.no || 999) - (b.no || 999) || a.name.localeCompare(b.name, "ko")); }
+function markOf(sid, date) { return data.records[date]?.[sid] || null; }
+function setMark(date, sid, mark) {
+  const day = { ...(data.records[date] || {}) };
+  if (mark) day[sid] = mark; else delete day[sid];
+  if (Object.keys(day).length) data.records[date] = day; else delete data.records[date];
+  save(); render();
+}
+function confirmInline(btn, text, fn) {
+  if (btn.dataset.armed) { fn(); return; }
+  const old = btn.textContent; btn.dataset.armed = "1"; btn.textContent = text;
+  setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = old; } }, 3000);
+}
+
+// ---------- 출결 ----------
+function renderRoll() {
+  const list = sortedStudents(), date = view.date;
+  const sheet = h("section", { class: "sheet" });
+  sheet.append(h("div", { class: "row" },
+    h("h2", {}, koDate(date)),
+    h("span", { class: "spacer" }),
+    h("input", { type: "date", id: "roll-date", value: date, "aria-label": "날짜 선택", onchange: e => { if (e.target.value) { view.date = e.target.value; render(); } } }),
+    h("button", { class: "btn", onclick: () => { view.date = localDate(new Date()); render(); } }, "오늘"),
+  ));
+  if (!list.length) {
+    sheet.append(h("div", { class: "empty" }, h("h3", {}, "학생 명단이 비어 있습니다"),
+      h("p", {}, "‘학생 명단’ 탭에서 번호와 이름을 붙여 넣으면 이곳에 출결 체크 목록이 생깁니다."),
+      h("button", { class: "btn primary", onclick: () => setTab("roster") }, "명단 추가하러 가기")));
+    return sheet;
+  }
+  const counts = { present: 0, late: 0, early: 0, skip: 0, absent: 0, none: 0 };
+  for (const s of list) counts[markOf(s.id, date)?.s || "none"]++;
+  sheet.append(h("div", { class: "row" },
+    h("div", { class: "summary" },
+      STATUSES.map(st => h("span", { class: "chip s-" + st.key }, st.label, h("b", {}, counts[st.key]))),
+      h("span", { class: "chip s-none" }, "미확인", h("b", {}, counts.none))),
+    h("span", { class: "spacer" }),
+    h("button", { class: "btn", disabled: !counts.none, onclick: () => {
+      const day = { ...(data.records[date] || {}) };
+      for (const s of list) if (!day[s.id]) day[s.id] = { s: "present", r: "" };
+      data.records[date] = day; save(); render();
+    } }, "나머지 모두 출석 처리"),
+  ));
+
+  const roll = h("div", { class: "roll" });
+  for (const s of list) {
+    const m = markOf(s.id, date) || { s: null, r: "" };
+    const seg = h("div", { class: "seg", role: "group", "aria-label": s.name + " 출결" },
+      STATUSES.map(st => h("button", {
+        class: st.key + (m.s === st.key ? " on" : ""),
+        "aria-pressed": m.s === st.key ? "true" : "false",
+        onclick: () => setMark(date, s.id, m.s === st.key ? null : { s: st.key, r: st.key === "present" ? "" : (m.r || "") }),
+      }, st.label)));
+    const controls = h("div", { class: "controls" }, seg);
+    if (m.s && m.s !== "present") {
+      controls.append(h("select", { "aria-label": "사유", id: "reason-" + s.id, onchange: ev => setMark(date, s.id, { s: m.s, r: ev.target.value }) },
+        h("option", { value: "" }, "사유"),
+        REASONS.map(x => h("option", { value: x, selected: m.r === x }, x))));
+    }
+    roll.append(h("div", { class: "student" },
+      h("span", { class: "no" }, s.no || "–"),
+      h("div", { class: "who" }, h("span", { class: "name" }, s.name), data.memos[s.id] ? h("span", { class: "meta" }, "메모: " + data.memos[s.id]) : null),
+      controls));
+  }
+  sheet.append(roll);
+  return sheet;
+}
+
+// ---------- 학생 명단 ----------
+function parseBulk(text, startNo) {
+  const out = []; let n = startNo;
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim(); if (!t) continue;
+    const m = t.match(/^(\d+)[\s,.\t)번]*\s*(.+)$/);
+    if (m) { out.push({ no: Number(m[1]), name: m[2].trim() }); n = Math.max(n, Number(m[1]) + 1); }
+    else out.push({ no: n++, name: t });
+  }
+  return out;
+}
+function newId() { return "s" + Math.random().toString(36).slice(2, 10); }
+
+function renderRoster() {
+  const list = sortedStudents();
+  const wrap = h("div", { style: "display:grid;gap:18px" });
+
+  wrap.append(h("section", { class: "sheet" },
+    h("h2", {}, "반 설정"),
+    h("div", { class: "row" },
+      h("label", { for: "set-class" }, "반 이름"),
+      h("input", { type: "text", id: "set-class", value: data.className, placeholder: "예: 2학년 3반",
+        onchange: e => { data.className = e.target.value.trim(); save(); render(); } }))));
+
+  const nextNo = list.reduce((m, s) => Math.max(m, s.no || 0), 0) + 1;
+  wrap.append(h("section", { class: "sheet" },
+    h("h2", {}, "학생 추가"),
+    h("p", { class: "small muted", style: "margin:0" }, "한 줄에 한 명씩 ‘번호 이름’ 형식으로 붙여 넣으세요. 번호를 빼면 이어서 매겨집니다. 엑셀에서 두 열을 복사해 붙여도 됩니다."),
+    h("textarea", { id: "bulk", placeholder: "1 홍길동\n2 김하늘\n3 이도윤", value: view.bulk, oninput: e => { view.bulk = e.target.value; } }),
+    h("div", { class: "row" }, h("button", { class: "btn primary", onclick: () => {
+      const added = parseBulk(view.bulk, nextNo).map(x => ({ id: newId(), ...x }));
+      if (!added.length) { toast("추가할 이름을 입력해 주세요."); return; }
+      data.students = [...data.students, ...added]; view.bulk = "";
+      save(); render(); toast(`${added.length}명을 추가했습니다.`);
+    } }, "명단에 추가"))));
+
+  const tbl = h("section", { class: "sheet" }, h("div", { class: "row" }, h("h2", {}, "명단"), h("span", { class: "muted" }, `${list.length}명`)));
+  if (!list.length) tbl.append(h("div", { class: "empty" }, h("p", {}, "아직 등록된 학생이 없습니다. 위에서 명단을 붙여 넣어 주세요.")));
+  else {
+    const body = h("tbody");
+    for (const s of list) {
+      body.append(h("tr", {},
+        h("td", { class: "n" }, h("input", { type: "text", id: "no-" + s.id, value: s.no ?? "", style: "width:3.5rem;min-width:0;text-align:right",
+          onchange: e => { s.no = Number(e.target.value) || null; save(); render(); } })),
+        h("td", {}, h("input", { type: "text", id: "name-" + s.id, value: s.name, style: "min-width:7rem",
+          onchange: e => { const v = e.target.value.trim(); if (v) { s.name = v; save(); render(); } } })),
+        h("td", {}, h("input", { type: "text", id: "memo-" + s.id, value: data.memos[s.id] || "", placeholder: "메모",
+          oninput: e => { data.memos[s.id] = e.target.value; save(); } })),
+        h("td", {}, h("button", { class: "btn danger", onclick: ev => confirmInline(ev.currentTarget, "정말 삭제", () => {
+          data.students = data.students.filter(x => x.id !== s.id); delete data.memos[s.id]; save(); render();
+        }) }, "삭제"))));
+    }
+    tbl.append(h("div", { class: "table-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", { class: "n" }, "번호"), h("th", {}, "이름"), h("th", {}, "메모"), h("th", {}, ""))), body)));
+  }
+  wrap.append(tbl);
+  return wrap;
+}
+
+// ---------- 통계 ----------
+function monthStats(month) {
+  const days = Object.keys(data.records).filter(d => d.startsWith(month)).sort();
+  const rows = sortedStudents().map(s => {
+    const c = { present: 0, late: 0, early: 0, skip: 0, absent: 0, none: 0 };
+    for (const d of days) c[markOf(s.id, d)?.s || "none"]++;
+    const attended = c.present + c.late + c.early + c.skip;
+    return { s, c, rate: days.length ? Math.round(attended / days.length * 100) : 0 };
+  });
+  return { days, rows };
+}
+function renderStats() {
+  const { days, rows } = monthStats(view.month);
+  const sheet = h("section", { class: "sheet" },
+    h("div", { class: "row" }, h("h2", {}, "월별 통계"), h("span", { class: "spacer" }),
+      h("input", { type: "month", id: "stats-month", value: view.month, "aria-label": "월 선택", onchange: e => { if (e.target.value) { view.month = e.target.value; render(); } } }),
+      h("button", { class: "btn", disabled: !rows.length || !days.length, onclick: exportCsv }, "엑셀(CSV)로 받기")),
+    h("p", { class: "small muted", style: "margin:0" }, `기록이 있는 수업일 ${days.length}일 기준. 미확인은 그날 기록이 없는 경우입니다.`));
+  if (!rows.length || !days.length) {
+    sheet.append(h("div", { class: "empty" }, h("p", {}, rows.length ? "이 달에는 아직 출결 기록이 없습니다." : "학생 명단을 먼저 추가해 주세요.")));
+    return sheet;
+  }
+  const body = h("tbody");
+  for (const { s, c, rate } of rows) {
+    body.append(h("tr", {},
+      h("td", { class: "n" }, s.no || "–"), h("td", {}, s.name),
+      STATUSES.map(st => h("td", { class: "n" }, c[st.key] ? h("span", { class: "chip s-" + st.key }, c[st.key]) : h("span", { class: "muted" }, "0"))),
+      h("td", { class: "n muted" }, c.none),
+      h("td", { class: "n" }, rate + "%")));
+  }
+  sheet.append(h("div", { class: "table-wrap" }, h("table", {},
+    h("thead", {}, h("tr", {}, h("th", { class: "n" }, "번호"), h("th", {}, "이름"), STATUSES.map(st => h("th", { class: "n" }, st.label)), h("th", { class: "n" }, "미확인"), h("th", { class: "n" }, "출석률"))),
+    body)));
+  return sheet;
+}
+function downloadFile(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = h("a", { href: url, download: name }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportCsv() {
+  const { days, rows } = monthStats(view.month);
+  const q = v => `"${String(v).replace(/"/g, '""')}"`;
+  const lines = [["번호", "이름", ...STATUSES.map(s => s.label), "미확인", "출석률", ...days].map(q).join(",")];
+  for (const { s, c, rate } of rows) {
+    const daily = days.map(d => { const m = markOf(s.id, d); return m ? LABEL[m.s] + (m.r ? `(${m.r})` : "") : ""; });
+    lines.push([s.no ?? "", s.name, ...STATUSES.map(st => c[st.key]), c.none, rate + "%", ...daily].map(q).join(","));
+  }
+  downloadFile(`출석부_${data.className || "우리반"}_${view.month}.csv`, "﻿" + lines.join("\r\n"), "text/csv;charset=utf-8");
+}
+
+// ---------- 백업 ----------
+function renderBackup() {
+  const sheet = h("section", { class: "sheet" },
+    h("h2", {}, "백업과 복원"),
+    h("div", { class: "notice" }, "기록은 지금 쓰는 이 브라우저에만 저장됩니다. 다른 컴퓨터나 휴대폰에서는 보이지 않고, 브라우저의 방문 기록·쿠키를 지우면 함께 사라집니다. 일주일에 한 번은 백업 파일을 받아 두세요."),
+    h("p", { class: "muted small", style: "margin:0" }, data.savedAt ? `마지막 저장: ${new Date(data.savedAt).toLocaleString("ko-KR")}` : "아직 저장된 기록이 없습니다."),
+    h("div", { class: "row" },
+      h("button", { class: "btn primary", onclick: () => downloadFile(`출석부_백업_${localDate(new Date())}.json`, JSON.stringify(data, null, 1), "application/json") }, "백업 파일 받기"),
+      h("label", { class: "btn", for: "restore-file" }, "백업 파일로 복원"),
+      h("input", { type: "file", id: "restore-file", accept: ".json,application/json", hidden: true, onchange: restore })),
+    h("p", { class: "muted small", style: "margin:0" }, "다른 컴퓨터로 옮길 때도 이 방법을 씁니다. 원래 컴퓨터에서 백업 파일을 받고, 새 컴퓨터에서 이 페이지를 연 뒤 복원하세요. 복원하면 지금 이 브라우저의 기록은 백업 내용으로 바뀝니다."));
+  return sheet;
+}
+function restore(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const d = JSON.parse(reader.result);
+      if (!Array.isArray(d.students) || typeof d.records !== "object") throw new Error();
+      data = { className: "", students: [], records: {}, memos: {}, ...d };
+      save(); render(); toast(`복원했습니다. 학생 ${data.students.length}명`);
+    } catch { toast("출석부 백업 파일이 아닙니다. ‘출석부_백업_날짜.json’ 파일을 골라 주세요."); }
+    e.target.value = "";
+  };
+  reader.readAsText(file);
+}
+
+// ---------- shell ----------
+function setTab(t) { view.tab = t; try { localStorage.setItem(STORE_KEY + ":tab", t); } catch {} render(); }
+function render() {
+  document.getElementById("class-name").textContent = data.className || "우리반 출석부";
+  document.title = data.className ? `${data.className} 출석부` : "우리반 출석부";
+  document.getElementById("today-label").textContent = koDate(localDate(new Date()));
+  for (const b of document.querySelectorAll("#tabs button")) b.setAttribute("aria-selected", b.dataset.tab === view.tab ? "true" : "false");
+  const focusId = document.activeElement && document.activeElement.id;
+  const main = document.getElementById("main");
+  main.replaceChildren({ roll: renderRoll, roster: renderRoster, stats: renderStats, backup: renderBackup }[view.tab]());
+  if (focusId) { const el = document.getElementById(focusId); if (el && el !== document.activeElement) el.focus(); }
+}
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tab]"); if (b) setTab(b.dataset.tab);
+});
+load();
+render();
+</script>
+</body>
+</html>
